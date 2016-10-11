@@ -5,6 +5,19 @@ var config = require("../config.json");
 
 var client = new Torrent();
 
+
+
+var eventWasCall = false;
+
+function gestureEventError(eventWasCall,emit,res) {
+    if (!eventWasCall) {
+        emit.on('error', function (err) {
+            res.end(err.message);
+            eventWasCall = true;
+        });
+    }
+}
+
 function status(client)
 {
     let status = {
@@ -19,13 +32,26 @@ function status(client)
     return status;
 }
 
+// this function controll if query username and password are the same of username and password of file config
+function controlLogin(config, req, resp)
+{
+    if (req.query.username !== config.username)
+    {
+        resp.end("username is not correct");
+    }
+    if (req.query.password !== config.password)
+    {
+        resp.end("password is not correct");
+    }
+}
+
 
 /* GET users listing. */
 router.get('/add', function(req, res, next) {
 
-    client.on('error', function (err) {
-      res.end(err.message);
-    });
+    gestureEventError(eventWasCall,client,res);
+
+    controlLogin(config, req,res);
 
     client.add(req.query.torrent,{ path: config.path }, function (torrent) {
         // Got torrent metadata!
@@ -40,6 +66,8 @@ router.get('/add', function(req, res, next) {
 
 
 router.get("/remove", function (req, res, next) {
+
+    controlLogin(config, req, res);
     if (req.query.torrent)
     {
         client.remove(req.query.torrent);
@@ -56,15 +84,15 @@ router.get("/status", function (req, res, next) {
 });
 
 router.get("/pause", function (req,res, next) {
+
+    controlLogin(config, req,res);
     if(req.query.torrent)
     {
         let tor = client.get(req.query.torrent);
         if (!tor)
             res.end("Value is not correct");
 
-        client.on('error', function (err) {
-            res.end(err.message);
-        });
+        gestureEventError(eventWasCall,client,req,next);
 
         res.json({
             id: tor.infoHash,
@@ -84,6 +112,7 @@ router.get("/pause", function (req,res, next) {
 
 router.get("/resume", function (req,res) {
 
+    controlLogin(config, req, res);
     if (!req.query.torrent)
     {
         client.torrents.forEach(function (tor) {
